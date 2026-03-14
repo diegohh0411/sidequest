@@ -31,7 +31,7 @@ git checkout -b "$BRANCH_NAME"
 
 # --- Step 4: Run Claude Code ---
 echo "==> Running Claude Code (model=$CLAUDE_MODEL, max-turns=$CLAUDE_MAX_TURNS)..."
-CLAUDE_ARGS=(-p "First, analyze the codebase and create a step-by-step plan for the task below. Then implement the plan.
+CLAUDE_ARGS=(-p "First, analyze the codebase and create a step-by-step plan for the task below. Then implement the plan. Keep in mind an industry-leading AI coding agent, like Codex or Gemini CLI, will be randomly selected to review your code.
 
 Task: $TASK_PROMPT" --dangerously-skip-permissions --verbose --model "$CLAUDE_MODEL")
 if [[ "$CLAUDE_MAX_TURNS" != "-1" ]]; then
