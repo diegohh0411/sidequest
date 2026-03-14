@@ -34,7 +34,7 @@ git add -A
 
 # --- Step 7: Check for changes ---
 if git diff --cached --quiet; then
-  echo "No changes made"
+  echo "==> No changes made by Claude Code."
   exit 0
 fi
 
