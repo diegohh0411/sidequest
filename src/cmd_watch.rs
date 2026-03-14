@@ -23,10 +23,10 @@ pub async fn cmd_watch(interval: Option<u64>) -> Result<()> {
         .and_then(|w| w.bot_mention.clone())
         .unwrap_or_else(|| "@sidequest".to_string());
 
-    // CLI flag takes precedence, then config, then default 120s
+    // CLI flag takes precedence, then config, then default 60s
     let interval = interval
         .or_else(|| watch_config.as_ref().and_then(|w| w.poll_interval))
-        .unwrap_or(120);
+        .unwrap_or(60);
 
     let gh_client = GitHubClient::new(gh_token.clone());
 

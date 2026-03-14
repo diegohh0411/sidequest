@@ -14,5 +14,5 @@ fast_model = "haiku"                    # used for lightweight tasks (commit mes
 max_turns = -1                          # unlimited turns, let it cook
 
 [watch]
-poll_interval = 120                     # seconds between polls
+poll_interval = 60                     # seconds between polls
 bot_mention = "@sidequest"              # trigger on comments mentioning this

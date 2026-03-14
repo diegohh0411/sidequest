@@ -58,7 +58,7 @@ enum Commands {
 
     /// Watch for PR review activity and auto-respond with fixes
     Watch {
-        /// Poll interval in seconds (default: from config or 120)
+        /// Poll interval in seconds (default: from config or 60)
         #[arg(long)]
         interval: Option<u64>,
     },
