@@ -109,6 +109,16 @@ impl GitHubClient {
         Ok(result.items)
     }
 
+    /// Get the default branch of a repository from the GitHub API.
+    pub async fn get_default_branch(&self, repo: &str) -> Result<String> {
+        let url = format!("https://api.github.com/repos/{repo}");
+        let json: serde_json::Value = self.get_json(&url).await?;
+        json["default_branch"]
+            .as_str()
+            .map(|s| s.to_string())
+            .context("GitHub API response did not contain a default_branch field")
+    }
+
     /// Get all reviews for a PR
     pub async fn get_reviews(&self, repo: &str, pr_number: u64) -> Result<Vec<Review>> {
         let url = format!(
