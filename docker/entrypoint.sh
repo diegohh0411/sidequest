@@ -49,7 +49,7 @@ Types: feat, fix, refactor, docs, test, chore, style, perf
 Task: $TASK_PROMPT
 
 Diff:
-$STAGED_DIFF" --model "claude-haiku-4-5-20251001")
+$STAGED_DIFF" --model "$CLAUDE_FAST_MODEL")
 
 if [[ -z "$COMMIT_MSG" ]]; then
   COMMIT_MSG="feat(sidequest): $TASK_PROMPT"
@@ -72,7 +72,7 @@ BODY_MARKDOWN
 Task: $TASK_PROMPT
 
 Diff:
-$DIFF_OUTPUT" --model "claude-haiku-4-5-20251001")
+$DIFF_OUTPUT" --model "$CLAUDE_FAST_MODEL")
 
 PR_TITLE=$(head -1 <<< "$PR_OUTPUT")
 PR_BODY=$(tail -n +3 <<< "$PR_OUTPUT")
