@@ -14,3 +14,4 @@ serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-std", "io-util"] }
 toml = "1.0"
 uuid = { version = "1", features = ["v4"] }
+rpassword = "7"

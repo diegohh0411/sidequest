@@ -8,7 +8,7 @@ use bollard::query_parameters::{
 use bollard::Docker;
 use clap::{Parser, Subcommand};
 use futures_util::StreamExt;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::io::{self, AsyncWriteExt};
 use uuid::Uuid;
@@ -52,6 +52,66 @@ enum Commands {
         #[arg(long)]
         task_id: String,
     },
+
+    /// Connect to external services and store credentials in ~/.sidequest/credentials
+    Connect {
+        #[command(subcommand)]
+        service: ConnectService,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConnectService {
+    /// Save a GitHub personal access token (needs repo + workflow scopes)
+    Github,
+}
+
+// ── Credentials ──────────────────────────────────────────────────────────────
+
+#[derive(Deserialize, Serialize, Default)]
+struct Credentials {
+    gh_token: Option<String>,
+}
+
+fn sidequest_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(home).join(".sidequest")
+}
+
+fn credentials_path() -> PathBuf {
+    sidequest_dir().join("credentials")
+}
+
+fn load_credentials() -> Result<Credentials> {
+    let path = credentials_path();
+    if !path.exists() {
+        return Ok(Credentials::default());
+    }
+    let contents = std::fs::read_to_string(&path)
+        .with_context(|| format!("Failed to read credentials: {}", path.display()))?;
+    toml::from_str(&contents)
+        .with_context(|| format!("Failed to parse credentials: {}", path.display()))
+}
+
+fn save_credentials(creds: &Credentials) -> Result<()> {
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = sidequest_dir();
+    std::fs::create_dir_all(&dir)
+        .with_context(|| format!("Failed to create directory: {}", dir.display()))?;
+
+    let path = credentials_path();
+    let contents = toml::to_string(creds).context("Failed to serialize credentials")?;
+    std::fs::write(&path, &contents)
+        .with_context(|| format!("Failed to write credentials: {}", path.display()))?;
+
+    // Restrict to owner read/write only (600) — prevents other users from reading the token
+    #[cfg(unix)]
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+        .with_context(|| format!("Failed to set permissions on: {}", path.display()))?;
+
+    Ok(())
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
@@ -141,6 +201,9 @@ async fn main() -> Result<()> {
             base_branch,
         } => cmd_run(repo, prompt, base_branch).await,
         Commands::Logs { task_id } => cmd_logs(task_id).await,
+        Commands::Connect { service } => match service {
+            ConnectService::Github => cmd_connect_github(),
+        },
     }
 }
 
@@ -174,9 +237,10 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
     let task_id = Uuid::new_v4().to_string();
     let base_branch = base_branch.unwrap_or(config.github.default_base_branch.clone());
 
-    // Read required env vars
-    let gh_token = std::env::var("GH_TOKEN")
-        .context("GH_TOKEN environment variable is required but not set")?;
+    // Resolve GH_TOKEN: env var takes precedence, then fall back to stored credentials
+    let gh_token = std::env::var("GH_TOKEN").ok()
+        .or_else(|| load_credentials().ok().and_then(|c| c.gh_token))
+        .context("GH_TOKEN is not set. Run `sidequest connect github` to store your token, or set the GH_TOKEN env var.")?;
     let anthropic_key = std::env::var("ANTHROPIC_API_KEY").ok();
 
     let image_name = &config.docker.image_name;
@@ -337,6 +401,31 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
         bail!("Container exited with code {exit_code}");
     }
 
+    Ok(())
+}
+
+// ── connect ──────────────────────────────────────────────────────────────────
+
+fn cmd_connect_github() -> Result<()> {
+    println!("==> Connecting to GitHub");
+    println!("    Enter a GitHub personal access token with repo + workflow scopes.");
+    println!("    It will be saved to: {}", credentials_path().display());
+    println!();
+
+    let token = rpassword::prompt_password("    Token: ")
+        .context("Failed to read token from terminal")?;
+
+    if token.trim().is_empty() {
+        bail!("Token cannot be empty.");
+    }
+
+    let mut creds = load_credentials()?;
+    creds.gh_token = Some(token.trim().to_string());
+    save_credentials(&creds)?;
+
+    println!();
+    println!("==> GitHub token saved to {}", credentials_path().display());
+    println!("    `sidequest run` will now use it automatically.");
     Ok(())
 }
 
