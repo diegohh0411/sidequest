@@ -12,3 +12,7 @@ branch_prefix = "sidequest/"            # branches will be named sidequest/<task
 model = "sonnet"                        # passed to claude via --model flag
 fast_model = "haiku"                    # used for lightweight tasks (commit messages, PR titles)
 max_turns = -1                          # unlimited turns, let it cook
+
+[watch]
+poll_interval = 120                     # seconds between polls
+bot_mention = "@sidequest"              # trigger on comments mentioning this

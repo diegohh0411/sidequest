@@ -35,9 +35,10 @@ RUN useradd -m -s /bin/bash agent && \
     mkdir -p /workspace && \
     chown agent:agent /workspace
 
-# Copy entrypoint script
+# Copy entrypoint scripts
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY entrypoint-review.sh /entrypoint-review.sh
+RUN chmod +x /entrypoint.sh /entrypoint-review.sh
 
 USER agent
 ENV HOME=/home/agent
