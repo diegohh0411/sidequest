@@ -10,4 +10,5 @@ branch_prefix = "sidequest/"            # branches will be named sidequest/<task
 [claude]
 # ANTHROPIC_API_KEY is always read from env var, never from config
 model = "sonnet"                        # passed to claude via --model flag
+fast_model = "haiku"                    # used for lightweight tasks (commit messages, PR titles)
 max_turns = -1                          # unlimited turns, let it cook

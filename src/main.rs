@@ -140,6 +140,7 @@ struct GithubConfig {
 #[derive(Deserialize)]
 struct ClaudeConfig {
     model: String,
+    fast_model: String,
     max_turns: i64,
 }
 
@@ -156,6 +157,7 @@ impl Default for AppConfig {
             },
             claude: ClaudeConfig {
                 model: "sonnet".to_string(),
+                fast_model: "haiku".to_string(),
                 max_turns: -1,
             },
         }
@@ -338,6 +340,7 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
         format!("BASE_BRANCH={base_branch}"),
         format!("BRANCH_PREFIX={}", config.github.branch_prefix),
         format!("CLAUDE_MODEL={}", config.claude.model),
+        format!("CLAUDE_FAST_MODEL={}", config.claude.fast_model),
         format!("CLAUDE_MAX_TURNS={}", config.claude.max_turns),
     ];
     env_vars.extend(extra_env);
