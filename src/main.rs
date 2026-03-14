@@ -30,9 +30,9 @@ enum Commands {
 
     /// Run a coding task in a disposable container
     Run {
-        /// Target repository in "owner/repo" format
+        /// Target repository in "owner/repo" format (default: detected from current directory's git remote)
         #[arg(long)]
-        repo: String,
+        repo: Option<String>,
 
         /// Natural language task description for Claude Code
         #[arg(long)]

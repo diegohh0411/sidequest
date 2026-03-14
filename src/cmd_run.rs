@@ -9,7 +9,11 @@ use crate::credentials::load_credentials;
 use crate::docker::{run_container, ContainerOpts};
 use crate::github::GitHubClient;
 
-pub async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> Result<()> {
+pub async fn cmd_run(
+    repo: Option<String>,
+    prompt: String,
+    base_branch: Option<String>,
+) -> Result<()> {
     let config = load_config()?;
     let task_id = Uuid::new_v4().to_string();
     let base_branch = base_branch.unwrap_or(config.github.default_base_branch.clone());
@@ -21,9 +25,16 @@ pub async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) 
         .context("GH_TOKEN is not set. Run `sidequest connect github` to store your token, or set the GH_TOKEN env var.")?;
     let anthropic_key = std::env::var("ANTHROPIC_API_KEY").ok();
 
+    // If no --repo flag given, detect from the current directory's git remote
+    let repo_input = match repo {
+        Some(r) => r,
+        None => detect_repo_from_cwd()
+            .context("No --repo flag given and could not detect a GitHub repository from the current directory.\nMake sure you are inside a git repository with a GitHub remote, or pass --repo owner/repo.")?,
+    };
+
     // If the user omitted the owner prefix, prepend their GitHub username automatically
     let gh_client = GitHubClient::new(gh_token.clone());
-    let repo = gh_client.resolve_repo(repo).await?;
+    let repo = gh_client.resolve_repo(repo_input).await?;
 
     let image_name = &config.docker.image_name;
     let container_name = format!("{}{}", config.docker.container_prefix, &task_id[..8]);
@@ -71,6 +82,44 @@ pub async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) 
     }
 
     Ok(())
+}
+
+/// Detect the GitHub repo (owner/repo) from the current working directory's git remote.
+/// Supports both HTTPS (`https://github.com/owner/repo.git`) and SSH (`git@github.com:owner/repo.git`) URLs.
+fn detect_repo_from_cwd() -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let url = String::from_utf8(output.stdout).ok()?;
+    let url = url.trim();
+
+    parse_github_repo_from_remote(url)
+}
+
+/// Parse `owner/repo` from a GitHub remote URL (HTTPS or SSH).
+fn parse_github_repo_from_remote(url: &str) -> Option<String> {
+    // SSH: git@github.com:owner/repo.git
+    if let Some(path) = url.strip_prefix("git@github.com:") {
+        let repo = path.trim_end_matches(".git");
+        return Some(repo.to_string());
+    }
+
+    // HTTPS: https://github.com/owner/repo.git  or  https://github.com/owner/repo
+    if let Some(path) = url
+        .strip_prefix("https://github.com/")
+        .or_else(|| url.strip_prefix("http://github.com/"))
+    {
+        let repo = path.trim_end_matches(".git");
+        return Some(repo.to_string());
+    }
+
+    None
 }
 
 /// Resolve auth: API key takes precedence; fall back to mounting host ~/.claude session
