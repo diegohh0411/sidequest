@@ -38,11 +38,28 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
-# --- Step 7: Commit ---
-echo "==> Committing changes..."
-git commit -m "feat(sidequest): $TASK_ID" -m "$TASK_PROMPT"
+# --- Step 7: Generate conventional commit message via Claude Haiku ---
+echo "==> Generating commit message..."
+STAGED_DIFF=$(git diff --cached)
+COMMIT_MSG=$(claude -p "Generate a conventional commit message for the following staged diff and task.
+Output ONLY the commit message (subject line, optionally a blank line and body). No extra text.
+Use conventional commits format: type(scope): description
+Types: feat, fix, refactor, docs, test, chore, style, perf
 
-# --- Step 8: Generate PR title and body via Claude ---
+Task: $TASK_PROMPT
+
+Diff:
+$STAGED_DIFF" --model "claude-haiku-4-5-20251001")
+
+if [[ -z "$COMMIT_MSG" ]]; then
+  COMMIT_MSG="feat(sidequest): $TASK_PROMPT"
+fi
+
+# --- Step 8: Commit ---
+echo "==> Committing changes..."
+git commit -m "$COMMIT_MSG"
+
+# --- Step 9: Generate PR title and body via Claude Haiku ---
 echo "==> Generating PR title and body..."
 DIFF_OUTPUT=$(git diff "$BASE_BRANCH"...HEAD)
 PR_OUTPUT=$(claude -p "Given this diff and task description, generate a pull request title and body.
@@ -55,7 +72,7 @@ BODY_MARKDOWN
 Task: $TASK_PROMPT
 
 Diff:
-$DIFF_OUTPUT" --model "$CLAUDE_MODEL")
+$DIFF_OUTPUT" --model "claude-haiku-4-5-20251001")
 
 PR_TITLE=$(head -1 <<< "$PR_OUTPUT")
 PR_BODY=$(tail -n +3 <<< "$PR_OUTPUT")
@@ -73,17 +90,17 @@ ${TASK_PROMPT}
 *Automated by sidequest*"
 fi
 
-# --- Step 9: Push ---
+# --- Step 10: Push ---
 echo "==> Pushing branch..."
 git push origin HEAD
 
-# --- Step 10: Open pull request ---
+# --- Step 11: Open pull request ---
 echo "==> Creating pull request..."
 PR_URL=$(gh pr create \
   --title "$PR_TITLE" \
   --body "$PR_BODY" \
   --base "$BASE_BRANCH")
 
-# --- Step 11: Done ---
+# --- Step 12: Done ---
 echo "==> Pull request created: $PR_URL"
 exit 0
