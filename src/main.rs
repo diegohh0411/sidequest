@@ -283,7 +283,7 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
     while let Some(log_result) = log_stream.next().await {
         match log_result {
             Ok(output) => match output {
-                LogOutput::StdOut { message } => {
+                LogOutput::StdOut { message } | LogOutput::Console { message } => {
                     stdout.write_all(&message).await?;
                     stdout.flush().await?;
                 }
@@ -369,7 +369,7 @@ async fn cmd_logs(task_id: String) -> Result<()> {
     while let Some(log_result) = log_stream.next().await {
         match log_result {
             Ok(output) => match output {
-                LogOutput::StdOut { message } | LogOutput::StdErr { message } => {
+                LogOutput::StdOut { message } | LogOutput::StdErr { message } | LogOutput::Console { message } => {
                     stdout.write_all(&message).await?;
                 }
                 _ => {}
