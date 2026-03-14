@@ -234,6 +234,36 @@ async fn cmd_build_image() -> Result<()> {
 
 // ── run ──────────────────────────────────────────────────────────────────────
 
+/// If `repo` has no `/`, resolve the authenticated GitHub user and prepend them.
+async fn resolve_repo(repo: String, gh_token: &str) -> Result<String> {
+    if repo.contains('/') {
+        return Ok(repo);
+    }
+    // No owner prefix — look up the authenticated user's login
+    let client = reqwest::Client::new();
+    let resp = client
+        .get("https://api.github.com/user")
+        .header("Authorization", format!("Bearer {gh_token}"))
+        .header("User-Agent", "sidequest-cli")
+        .send()
+        .await
+        .context("Failed to reach GitHub API to resolve your username")?;
+    if !resp.status().is_success() {
+        bail!(
+            "GitHub API returned {} while resolving username. Check your token.",
+            resp.status()
+        );
+    }
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .context("Failed to parse GitHub API response")?;
+    let login = json["login"]
+        .as_str()
+        .context("GitHub API response did not contain a login field")?;
+    Ok(format!("{login}/{repo}"))
+}
+
 async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> Result<()> {
     let config = load_config()?;
     let task_id = Uuid::new_v4().to_string();
@@ -244,6 +274,9 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
         .or_else(|| load_credentials().ok().and_then(|c| c.gh_token))
         .context("GH_TOKEN is not set. Run `sidequest connect github` to store your token, or set the GH_TOKEN env var.")?;
     let anthropic_key = std::env::var("ANTHROPIC_API_KEY").ok();
+
+    // If the user omitted the owner prefix, prepend their GitHub username automatically
+    let repo = resolve_repo(repo, &gh_token).await?;
 
     let image_name = &config.docker.image_name;
     let container_name = format!("{}{}", config.docker.container_prefix, &task_id[..8]);
