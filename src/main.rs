@@ -247,6 +247,7 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
         image: Some(image_name.clone()),
         env: Some(env_vars),
         host_config: Some(host_config),
+        tty: Some(true),
         ..Default::default()
     };
 
