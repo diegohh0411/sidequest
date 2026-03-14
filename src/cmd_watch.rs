@@ -9,7 +9,7 @@ use crate::docker::{run_container, ContainerOpts};
 use crate::github::GitHubClient;
 use crate::state::{PrState, WatchState};
 
-pub async fn cmd_watch(interval: u64) -> Result<()> {
+pub async fn cmd_watch(interval: Option<u64>) -> Result<()> {
     let config = load_config()?;
 
     let gh_token = std::env::var("GH_TOKEN")
@@ -22,6 +22,11 @@ pub async fn cmd_watch(interval: u64) -> Result<()> {
         .as_ref()
         .and_then(|w| w.bot_mention.clone())
         .unwrap_or_else(|| "@sidequest".to_string());
+
+    // CLI flag takes precedence, then config, then default 120s
+    let interval = interval
+        .or_else(|| watch_config.as_ref().and_then(|w| w.poll_interval))
+        .unwrap_or(120);
 
     let gh_client = GitHubClient::new(gh_token.clone());
 
@@ -74,6 +79,7 @@ async fn poll_once(
             pr.number,
             &pr_key,
             &pr.title,
+            &pr.html_url,
             bot_mention,
         )
         .await
@@ -96,6 +102,7 @@ async fn process_pr(
     pr_number: u64,
     pr_key: &str,
     pr_title: &str,
+    pr_url: &str,
     bot_mention: &str,
 ) -> Result<()> {
     let prev_state = state.get(pr_key);
@@ -186,7 +193,7 @@ async fn process_pr(
 
     let feedback = feedback_parts.join("\n\n---\n\n");
 
-    println!("    {pr_key}: \"{}\" — triggering review container", pr_title);
+    println!("    {pr_key}: \"{}\" — triggering review container ({pr_url})", pr_title);
     println!(
         "      {} change request(s), {} mention comment(s)",
         new_change_requests.len(),
