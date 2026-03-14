@@ -1,0 +1,16 @@
+[package]
+name = "sidequest"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Lightweight CLI that runs Claude Code in disposable Docker containers to implement features and open PRs."
+
+[dependencies]
+anyhow = "1.0"
+bollard = "0.20"
+clap = { version = "4", features = ["derive"] }
+futures-util = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-std", "io-util"] }
+toml = "1.0"
+uuid = { version = "1", features = ["v4"] }
