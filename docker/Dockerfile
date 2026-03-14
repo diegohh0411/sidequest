@@ -30,8 +30,16 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Install Claude Code globally
 RUN npm install -g @anthropic-ai/claude-code
 
+# Create non-root user and workspace directory
+RUN useradd -m -s /bin/bash agent && \
+    mkdir -p /workspace && \
+    chown agent:agent /workspace
+
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+USER agent
+ENV HOME=/home/agent
 
 ENTRYPOINT ["/entrypoint.sh"]

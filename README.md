@@ -6,7 +6,9 @@ Lightweight CLI that runs Claude Code in disposable Docker containers to impleme
 
 - **Docker** — installed and running
 - **Rust toolchain** — 1.75+ (`rustup` recommended)
-- **Anthropic API key** — for Claude Code (`ANTHROPIC_API_KEY`)
+- **Auth** — one of:
+  - **Claude Pro/Max account** — if you've used `claude` interactively on this machine, your session at `~/.claude` is mounted read-only into the container automatically (no API key needed)
+  - **Anthropic API key** — set `ANTHROPIC_API_KEY` to use API billing instead; this takes precedence over the mounted session
 - **GitHub PAT** — with `repo` scope (`GH_TOKEN`)
 
 ## Quick Start
@@ -18,11 +20,17 @@ cargo build --release
 # 2. Build the Docker image (one-time setup)
 ./target/release/sidequest build-image
 
-# 3. Set your secrets as environment variables
+# 3. Set your GitHub token
 export GH_TOKEN="ghp_your_token_here"
-export ANTHROPIC_API_KEY="sk-ant-your_key_here"
 
 # 4. Run a task
+#    If you have a Claude Pro/Max account and have run `claude` at least once, no API key needed:
+./target/release/sidequest run \
+  --repo "owner/repo" \
+  --prompt "Implement the /health endpoint in src/routes/health.rs returning 200 OK with a JSON body"
+
+#    Alternatively, set ANTHROPIC_API_KEY to use API billing:
+export ANTHROPIC_API_KEY="sk-ant-your_key_here"
 ./target/release/sidequest run \
   --repo "owner/repo" \
   --prompt "Implement the /health endpoint in src/routes/health.rs returning 200 OK with a JSON body"
@@ -110,7 +118,7 @@ If no config file is found, sensible defaults are used (see `config.example.toml
 
 ## Security
 
-- **Secrets are env-var-only.** `GH_TOKEN` and `ANTHROPIC_API_KEY` are never stored in config files or baked into the Docker image. They are passed to the container at runtime via environment variables.
+- **Secrets are env-var-only.** `GH_TOKEN` and `ANTHROPIC_API_KEY` (when used) are never stored in config files or baked into the Docker image. They are passed to the container at runtime via environment variables. When using the mounted session auth, `~/.claude` is mounted read-only and no credentials are copied.
 - **Containers are ephemeral and isolated.** Each task runs in a fresh, disposable Docker container. The container is force-removed after the task completes, regardless of success or failure.
 - **`--dangerously-skip-permissions` is safe here.** The flag is required for headless Claude Code operation. It is safe because the container *is* the sandbox — Claude Code can only affect files inside the container, which is destroyed after the run.
 

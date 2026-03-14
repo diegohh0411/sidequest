@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use bollard::container::LogOutput;
-use bollard::models::ContainerCreateBody;
+use bollard::models::{ContainerCreateBody, HostConfig};
 use bollard::query_parameters::{
     CreateContainerOptionsBuilder, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
     WaitContainerOptionsBuilder,
@@ -177,8 +177,7 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
     // Read required env vars
     let gh_token = std::env::var("GH_TOKEN")
         .context("GH_TOKEN environment variable is required but not set")?;
-    let anthropic_key = std::env::var("ANTHROPIC_API_KEY")
-        .context("ANTHROPIC_API_KEY environment variable is required but not set")?;
+    let anthropic_key = std::env::var("ANTHROPIC_API_KEY").ok();
 
     let image_name = &config.docker.image_name;
     let container_name = format!("{}{}", config.docker.container_prefix, &task_id[..8]);
@@ -197,11 +196,44 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
         bail!("Docker image '{image_name}' not found. Run `sidequest build-image` first.");
     }
 
+    // Resolve auth: API key takes precedence; fall back to mounting host ~/.claude session
+    let (extra_env, host_config) = if let Some(key) = anthropic_key {
+        println!("==> Auth: using ANTHROPIC_API_KEY");
+        (
+            vec![format!("ANTHROPIC_API_KEY={key}")],
+            HostConfig::default(),
+        )
+    } else {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .context("Neither HOME nor USERPROFILE environment variable is set")?;
+        let claude_path = PathBuf::from(&home).join(".claude");
+        if !claude_path.exists() {
+            bail!(
+                "No ANTHROPIC_API_KEY set and ~/.claude not found at {}. \
+                Run `claude` once interactively to log in, or set ANTHROPIC_API_KEY.",
+                claude_path.display()
+            );
+        }
+        println!("==> Auth: mounting host ~/.claude session (no API key)");
+        let claude_json = PathBuf::from(&home).join(".claude.json");
+        let mut binds = vec![format!("{}:/home/agent/.claude:ro", claude_path.display())];
+        if claude_json.exists() {
+            binds.push(format!("{}:/home/agent/.claude.json:ro", claude_json.display()));
+        }
+        (
+            vec![],
+            HostConfig {
+                binds: Some(binds),
+                ..Default::default()
+            },
+        )
+    };
+
     // Create the container with all env vars for the entrypoint
-    let env_vars = vec![
+    let mut env_vars = vec![
         format!("REPO={repo}"),
         format!("GH_TOKEN={gh_token}"),
-        format!("ANTHROPIC_API_KEY={anthropic_key}"),
         format!("TASK_PROMPT={prompt}"),
         format!("TASK_ID={task_id}"),
         format!("BASE_BRANCH={base_branch}"),
@@ -209,10 +241,12 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
         format!("CLAUDE_MODEL={}", config.claude.model),
         format!("CLAUDE_MAX_TURNS={}", config.claude.max_turns),
     ];
+    env_vars.extend(extra_env);
 
     let container_config = ContainerCreateBody {
         image: Some(image_name.clone()),
         env: Some(env_vars),
+        host_config: Some(host_config),
         ..Default::default()
     };
 
