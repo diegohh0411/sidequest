@@ -73,17 +73,19 @@ struct Credentials {
     gh_token: Option<String>,
 }
 
-fn sidequest_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".sidequest")
+fn sidequest_dir() -> Result<PathBuf> {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .context("Could not determine home directory: neither HOME nor USERPROFILE is set")?;
+    Ok(PathBuf::from(home).join(".sidequest"))
 }
 
-fn credentials_path() -> PathBuf {
-    sidequest_dir().join("credentials")
+fn credentials_path() -> Result<PathBuf> {
+    Ok(sidequest_dir()?.join("credentials"))
 }
 
 fn load_credentials() -> Result<Credentials> {
-    let path = credentials_path();
+    let path = credentials_path()?;
     if !path.exists() {
         return Ok(Credentials::default());
     }
@@ -97,11 +99,11 @@ fn save_credentials(creds: &Credentials) -> Result<()> {
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
-    let dir = sidequest_dir();
+    let dir = sidequest_dir()?;
     std::fs::create_dir_all(&dir)
         .with_context(|| format!("Failed to create directory: {}", dir.display()))?;
 
-    let path = credentials_path();
+    let path = credentials_path()?;
     let contents = toml::to_string(creds).context("Failed to serialize credentials")?;
     std::fs::write(&path, &contents)
         .with_context(|| format!("Failed to write credentials: {}", path.display()))?;
@@ -409,7 +411,7 @@ async fn cmd_run(repo: String, prompt: String, base_branch: Option<String>) -> R
 fn cmd_connect_github() -> Result<()> {
     println!("==> Connecting to GitHub");
     println!("    Enter a GitHub personal access token with repo + workflow scopes.");
-    println!("    It will be saved to: {}", credentials_path().display());
+    println!("    It will be saved to: {}", credentials_path()?.display());
     println!();
 
     let token = rpassword::prompt_password("    Token: ")
@@ -424,7 +426,7 @@ fn cmd_connect_github() -> Result<()> {
     save_credentials(&creds)?;
 
     println!();
-    println!("==> GitHub token saved to {}", credentials_path().display());
+    println!("==> GitHub token saved to {}", credentials_path()?.display());
     println!("    `sidequest run` will now use it automatically.");
     Ok(())
 }
