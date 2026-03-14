@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppConfig {
     pub docker: DockerConfig,
     pub github: GithubConfig,
@@ -11,18 +12,20 @@ pub struct AppConfig {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DockerConfig {
     pub image_name: String,
     pub container_prefix: String,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GithubConfig {
-    pub default_base_branch: String,
     pub branch_prefix: String,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ClaudeConfig {
     pub model: String,
     pub fast_model: String,
@@ -30,6 +33,7 @@ pub struct ClaudeConfig {
 }
 
 #[derive(Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct WatchConfig {
     pub poll_interval: Option<u64>,
     pub bot_mention: Option<String>,
@@ -43,7 +47,6 @@ impl Default for AppConfig {
                 container_prefix: "sq-task-".to_string(),
             },
             github: GithubConfig {
-                default_base_branch: "main".to_string(),
                 branch_prefix: "sidequest/".to_string(),
             },
             claude: ClaudeConfig {

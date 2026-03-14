@@ -36,17 +36,11 @@ pub async fn cmd_run(
     let repo = gh_client.resolve_repo(repo_input).await?;
 
     let base_branch = match base_branch {
-        Some(b) => b,
-        None => {
-            if let Some(branch) = detect_default_branch_from_git() {
-                branch
-            } else {
-                gh_client
-                    .get_default_branch(&repo)
-                    .await
-                    .unwrap_or_else(|_| config.github.default_base_branch.clone())
-            }
-        }
+        Some(b) => b, // Explicit CLI flag always wins
+        None => gh_client
+            .get_default_branch(&repo)
+            .await
+            .unwrap_or_else(|_| "__auto__".to_string()),
     };
 
     let image_name = &config.docker.image_name;
@@ -95,25 +89,6 @@ pub async fn cmd_run(
     }
 
     Ok(())
-}
-
-/// Detect the default branch from the local git remote HEAD reference.
-/// Returns `None` if the reference is not set (e.g. `git remote set-head` was never run).
-fn detect_default_branch_from_git() -> Option<String> {
-    let output = std::process::Command::new("git")
-        .args(["symbolic-ref", "refs/remotes/origin/HEAD"])
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let line = String::from_utf8(output.stdout).ok()?;
-    // "refs/remotes/origin/main\n" -> "main"
-    line.trim()
-        .strip_prefix("refs/remotes/origin/")
-        .map(|s| s.to_string())
 }
 
 /// Detect the GitHub repo (owner/repo) from the current working directory's git remote.

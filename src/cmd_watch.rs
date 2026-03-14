@@ -84,7 +84,7 @@ async fn poll_once(
         )
         .await
         {
-            eprintln!("    Error processing {pr_key}: {e}");
+            eprintln!("    Error processing {pr_key}: {e:#}");
             // Continue to next PR
         }
     }

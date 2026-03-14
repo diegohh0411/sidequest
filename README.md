@@ -105,7 +105,6 @@ container_prefix = "sq-task-"           # container name prefix
 
 [github]
 # GH_TOKEN is always read from env var, never from config
-default_base_branch = "main"
 branch_prefix = "sidequest/"            # branches will be named sidequest/<task-id-short>
 
 [claude]

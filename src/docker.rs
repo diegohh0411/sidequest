@@ -51,10 +51,26 @@ pub async fn run_container(docker: &Docker, opts: ContainerOpts) -> Result<i64> 
 
     // Start the container
     println!("==> Starting container...");
-    docker
-        .start_container(&opts.container_name, None)
-        .await
-        .context("Failed to start container")?;
+    if let Err(start_err) = docker.start_container(&opts.container_name, None).await {
+        // Try to inspect container for status/error details
+        if let Ok(info) = docker.inspect_container(&opts.container_name, None).await {
+            if let Some(state) = info.state {
+                if let Some(err) = state.error {
+                    if !err.is_empty() {
+                        eprintln!("    Container error: {err}");
+                    }
+                }
+            }
+        }
+        // Clean up the created container
+        let remove_opts = RemoveContainerOptionsBuilder::default()
+            .force(true)
+            .build();
+        let _ = docker
+            .remove_container(&opts.container_name, Some(remove_opts))
+            .await;
+        return Err(start_err).context("Failed to start container");
+    }
 
     // Stream container logs to terminal in real-time
     println!("==> Streaming container output...\n");

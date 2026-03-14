@@ -25,6 +25,15 @@ if [[ -z "$BRANCH_SLUG" ]]; then
 fi
 
 BRANCH_NAME="${BRANCH_PREFIX}${BRANCH_SLUG}"
+
+# Auto-detect default branch from the freshly cloned repo if BASE_BRANCH is "__auto__"
+if [[ "$BASE_BRANCH" == "__auto__" ]]; then
+  BASE_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || true)
+  if [[ -z "$BASE_BRANCH" ]]; then
+    BASE_BRANCH=$(gh api "repos/$REPO" --jq '.default_branch' 2>/dev/null || echo "main")
+  fi
+fi
+
 echo "==> Checking out base branch '$BASE_BRANCH' and creating '$BRANCH_NAME'..."
 git checkout "$BASE_BRANCH"
 git checkout -b "$BRANCH_NAME"
