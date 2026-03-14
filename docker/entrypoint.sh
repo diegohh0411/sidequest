@@ -11,10 +11,21 @@ git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".instead
 echo "==> Cloning repository: $REPO"
 gh repo clone "$REPO" /workspace
 
-# --- Step 3: Create a new branch ---
-BRANCH_NAME="${BRANCH_PREFIX}${TASK_ID:0:8}"
-echo "==> Checking out base branch '$BASE_BRANCH' and creating '$BRANCH_NAME'..."
+# --- Step 3: Generate a branch name via Claude fast model ---
 cd /workspace
+echo "==> Generating branch name..."
+BRANCH_SLUG=$(claude -p "Generate a short git branch name slug for the following task.
+Output ONLY the slug: 2-5 lowercase words separated by hyphens, no slashes, no special characters.
+Examples: add-dark-mode, fix-login-bug, refactor-auth-middleware
+
+Task: $TASK_PROMPT" --model "$CLAUDE_FAST_MODEL" 2>/dev/null | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//')
+
+if [[ -z "$BRANCH_SLUG" ]]; then
+  BRANCH_SLUG="${TASK_ID:0:8}"
+fi
+
+BRANCH_NAME="${BRANCH_PREFIX}${BRANCH_SLUG}"
+echo "==> Checking out base branch '$BASE_BRANCH' and creating '$BRANCH_NAME'..."
 git checkout "$BASE_BRANCH"
 git checkout -b "$BRANCH_NAME"
 
